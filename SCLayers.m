@@ -189,7 +189,7 @@ while ~handles.fileLoc
     
     switch toDo
         case 'Yes'
-            break
+            return
         case 'No'
             handles.fileLoc = uigetdir;
     end
@@ -209,15 +209,19 @@ if isempty(extTest)
     return
 end
 % If TIF or TIFF files are found then they will be loaded
-
+handles.imageINFO = parseImageFiles(fileTypes,2);
 % 2. Create list handle
-handles.FileNames = fileTypes;
+handles.FileNames = handles.imageINFO.Image.FNames;
 % 3. Load file names into list panel
 set(handles.filelist,'String',handles.FileNames)
 % 4. Load first image into Display
 handles.liveImage = imread(handles.FileNames{1});
 
 set(handles.fnameBox,'String',handles.FileNames{1})
+
+
+
+
 
 % Show Image
 set(handles.imDisplay,'Visible','on')
@@ -408,6 +412,17 @@ for imI = 1:length(imageNames)
         polyToggle = 1;
         while polyToggle
             
+            % Check if section has layer
+            checkText = sprintf('Does Section have %s Layer',layerNs{scLayi});
+            layerQuest = questdlg(checkText,'Layer?','Yes','No','Yes');
+            
+            if strcmp(layerQuest, 'No')
+                handles.(layerNs{scLayi}).PolyXC = NaN;
+                handles.(layerNs{scLayi}).PolyYC = NaN;
+                polyToggle = 0;
+                continue
+            end
+
             % Draw NTS polygon
             drawText = sprintf('Draw Polygon for %s Layer',layerNs{scLayi});
             set(handles.mesText,'String',drawText);
@@ -435,30 +450,37 @@ for imI = 1:length(imageNames)
                     polyToggle = 1;
             end
         end
-        
     end
     
     image2analyze = handles.liveImage(:,:,choseAChan);
     
     for scLayi2 = 1:numel(layerNs)
         
-        % User choose Analyze Channel
-        
-        wholePolymask.(layerNs{scLayi2}) = poly2mask(handles.(layerNs{scLayi2}).PolyXC,handles.(layerNs{scLayi2}).PolyYC,dim1,dim2); % Get mask
-        handles.pixelInfo.(layerNs{scLayi2}) = regionprops(wholePolymask.(layerNs{scLayi2}),image2analyze,'MeanIntensity','PixelValues','Area');
-        
-        % Calculate pixel threshold
-        pixelThreshold.(layerNs{scLayi2}) = mean(handles.pixelInfo.(layerNs{scLayi2}).PixelValues) + (std(double(handles.pixelInfo.(layerNs{scLayi2}).PixelValues))*2);
-        % Copy original image
-        image2thresh.(layerNs{scLayi2}) = image2analyze;
-        % Exclude all pixels outside polygon
-        image2thresh.(layerNs{scLayi2})(~wholePolymask.(layerNs{scLayi2})) = 0;
-        % Create image with pixels above threshold
-        finalImage.(layerNs{scLayi2}) = image2thresh.(layerNs{scLayi2}) > pixelThreshold.(layerNs{scLayi2});
-        % Calculate area of pixels above threshold
-        densityArea.(layerNs{scLayi2}) = bwarea(finalImage.(layerNs{scLayi2}));
-        % Calculate fraction of area occupied by pixels above threshold
-        handles.pixelInfo.(layerNs{scLayi2}).fracDenArea = densityArea.(layerNs{scLayi2})/handles.pixelInfo.(layerNs{scLayi2}).Area;
+        if isnan(handles.(layerNs{scLayi2}).PolyXC)
+            
+            handles.pixelInfo.(layerNs{scLayi2}).fracDenArea = NaN;
+            
+        else
+            
+            % User choose Analyze Channel
+            
+            wholePolymask.(layerNs{scLayi2}) = poly2mask(handles.(layerNs{scLayi2}).PolyXC,handles.(layerNs{scLayi2}).PolyYC,dim1,dim2); % Get mask
+            handles.pixelInfo.(layerNs{scLayi2}) = regionprops(wholePolymask.(layerNs{scLayi2}),image2analyze,'MeanIntensity','PixelValues','Area');
+            
+            % Calculate pixel threshold
+            pixelThreshold.(layerNs{scLayi2}) = mean(handles.pixelInfo.(layerNs{scLayi2}).PixelValues) + (std(double(handles.pixelInfo.(layerNs{scLayi2}).PixelValues))*2);
+            % Copy original image
+            image2thresh.(layerNs{scLayi2}) = image2analyze;
+            % Exclude all pixels outside polygon
+            image2thresh.(layerNs{scLayi2})(~wholePolymask.(layerNs{scLayi2})) = 0;
+            % Create image with pixels above threshold
+            finalImage.(layerNs{scLayi2}) = image2thresh.(layerNs{scLayi2}) > pixelThreshold.(layerNs{scLayi2});
+            % Calculate area of pixels above threshold
+            densityArea.(layerNs{scLayi2}) = bwarea(finalImage.(layerNs{scLayi2}));
+            % Calculate fraction of area occupied by pixels above threshold
+            handles.pixelInfo.(layerNs{scLayi2}).fracDenArea = densityArea.(layerNs{scLayi2})/handles.pixelInfo.(layerNs{scLayi2}).Area;
+            
+        end
         
     end
     
@@ -466,7 +488,12 @@ for imI = 1:length(imageNames)
     handles.PixelDataOut.OD{imI} = handles.pixelInfo;
     currentData = get(handles.dataTable,'Data');
     for neD = 1:numel(layerNs)
-        currentData{imI,neD} = ceil(handles.pixelInfo.(layerNs{neD}).fracDenArea*1000)/1000;
+        
+        if isnan(handles.pixelInfo.(layerNs{neD}).fracDenArea)
+            currentData{imI,neD} = NaN;
+        else
+            currentData{imI,neD} = ceil(handles.pixelInfo.(layerNs{neD}).fracDenArea*1000)/1000;
+        end
     end
     set(handles.dataTable,'Data',currentData);
     
