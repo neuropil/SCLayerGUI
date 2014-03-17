@@ -392,6 +392,8 @@ end
 axes(handles.imDisplay);
 for imI = 1:length(imageNames)
     
+    set(handles.mesText,'String','Draw Polygon for Superficial Layer');
+    
     set(handles.fnameBox,'String',imageNames{imI})
     set(handles.filelist,'Value',imI);
     
@@ -400,7 +402,16 @@ for imI = 1:length(imageNames)
     [dim1,dim2,~] = size(handles.liveImage);
     blankImage = uint8(zeros(dim1,dim2,3));
     blankImage(:,:,choseDChan) = handles.liveImage(:,:,choseDChan);
-    chan2disp = blankImage;
+    
+    % Make inverted image
+    image2invert = handles.liveImage(:,:,choseDChan);
+    invertImInterest = 255-image2invert;
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%
+    
+    chan2disp = invertImInterest;
+%     chan2disp = blankImage;
     imshow(chan2disp)
     
     hold on;
