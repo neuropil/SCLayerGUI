@@ -400,8 +400,8 @@ for imI = 1:length(imageNames)
     cla(handles.imDisplay);
     handles.liveImage = imread(imageNames{imI});
     [dim1,dim2,~] = size(handles.liveImage);
-    blankImage = uint8(zeros(dim1,dim2,3));
-    blankImage(:,:,choseDChan) = handles.liveImage(:,:,choseDChan);
+%     blankImage = uint8(zeros(dim1,dim2,3));
+%     blankImage(:,:,choseDChan) = handles.liveImage(:,:,choseDChan);
     
     % Make inverted image
     image2invert = handles.liveImage(:,:,choseDChan);
@@ -476,8 +476,47 @@ for imI = 1:length(imageNames)
             % User choose Analyze Channel
             
             wholePolymask.(layerNs{scLayi2}) = poly2mask(handles.(layerNs{scLayi2}).PolyXC,handles.(layerNs{scLayi2}).PolyYC,dim1,dim2); % Get mask
-            handles.pixelInfo.(layerNs{scLayi2}) = regionprops(wholePolymask.(layerNs{scLayi2}),image2analyze,'MeanIntensity','PixelValues','Area');
             
+            versionCheck = version('-release');
+            getYear = str2double(versionCheck(1:end-1));
+            if getYear < 2009
+                
+                warndlg('Update your Matlab!');
+                return
+                
+            else
+                
+                handles.pixelInfo.(layerNs{scLayi2}) = regionprops(wholePolymask.(layerNs{scLayi2}),image2analyze,'MeanIntensity','PixelValues','Area');
+                
+            end
+            
+            % Calculate quadrant corners
+            
+            % [B,~,~,~] = bwboundaries(mNtb_mask);
+
+
+            xmax = max(handles.(layerNs{scLayi}).PolyXC);
+            ymax = max(handles.(layerNs{scLayi}).PolyYC);
+            
+            xCor = handles.(layerNs{scLayi}).PolyXC(2:end);
+            yCor = handles.(layerNs{scLayi}).PolyYC(2:end);
+            
+            yCorR = zeros(numel(yCor),1);
+            for yi = 1:numel(yCor)
+                yCorR(yi) = yCor(yi) + rand;
+            end
+            
+            yCor = yCorR;
+            
+            xCorR = zeros(numel(xCor),1);
+            for xi = 1:numel(xCor)
+                xCorR(xi) = xCor(xi) + rand;
+            end
+            
+            xCor = xCorR;
+  
+            corners.(layerNs{scLayi2}) = cornerFind(yCor, ymax, xCor, xmax);
+
             % Calculate pixel threshold
             pixelThreshold.(layerNs{scLayi2}) = mean(handles.pixelInfo.(layerNs{scLayi2}).PixelValues) + (std(double(handles.pixelInfo.(layerNs{scLayi2}).PixelValues))*2);
             % Copy original image
